@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-from typing import Callable
 
 from requests import Session, Response
 
+from src.skylib.search_query import FlightSearchQuery
 from util.types import nullable, const
 
 
@@ -70,3 +70,7 @@ class AmadeusSession:
         self._access_token = token
         self._initialized = True
         self._token_expiry = datetime.now() + timedelta(minutes=30)
+
+
+    def find_flights(self, constraints: FlightSearchQuery):
+        ...
