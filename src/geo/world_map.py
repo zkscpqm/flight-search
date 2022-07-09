@@ -5,7 +5,7 @@ from typing import Iterator
 
 import pandas as pd
 
-from src.skylib.airport import Airport
+from src.flight_search.airport import Airport
 from util.types import const
 
 
@@ -61,7 +61,7 @@ class Field:
         return f"Field(airports={len(self)}, coords=({self.lat}, {self.lon}))"
 
 
-class Map:
+class WorldMap:
 
     KM_PER_SQUARE: const(float) = 12.5
 

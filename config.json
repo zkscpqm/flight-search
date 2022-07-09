@@ -1,0 +1,17 @@
+{
+    "db": {
+        "host": "localhost",
+        "port": 5432,
+        "user": "postgres",
+        "pass": ""
+    },
+    "fx_exchange": {
+        "base_currency": "EUR",
+        "cache_location": "",
+        "api_key": ""
+    },
+    "amadeus": {
+        "api_key": "",
+        "api_secret": ""
+    }
+}

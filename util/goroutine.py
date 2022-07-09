@@ -79,11 +79,13 @@ class Channel:
         with self._lock:
             return self._buffer.pop(0)
 
-    def iter(self) -> Generator:
+    def iter(self, n: int = -1) -> Generator:
         """
         A continuous iterator of the Channel's buffer. This can read while items are being written.
         """
-        while self.size > 0:
+        while self.size > 0 and (True if n < 0 else n > 0):
+            if n > 0:
+                n -= 1
             yield self.poll(block=False)
 
     def __next__(self):

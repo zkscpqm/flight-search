@@ -1,7 +1,7 @@
 import dataclasses
 from datetime import datetime
 
-from src.skylib.airport import Airport
+from src.flight_search.airport import Airport
 
 
 @dataclasses.dataclass
@@ -19,4 +19,3 @@ class Flight:
 class Trip:
 
     flights: list[Flight]
-

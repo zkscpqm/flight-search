@@ -5,6 +5,7 @@ from geopy import distance
 
 from util.types import nullable
 
+
 @dataclasses.dataclass
 class Airport:
     name: str
