@@ -74,7 +74,7 @@ class WorldMap:
                 lat, lon = self.convert_indexes_to_ll(lat_i, lon_i)
                 row.append(Field(lat=lat, lon=lon))
             self._map.append(row)
-        if data:
+        if data is not None:
             self.populate(data)
 
     @staticmethod
