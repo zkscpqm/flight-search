@@ -1,0 +1,27 @@
+{
+    "logging": {
+        "level": "debug",
+        "time_fmt": "%H:%M:%S",
+        "date_fmt": "%d-%m-%Y",
+        "dt_fmt": "%d-%m-%Y_%H:%M:%S"
+    },
+    "db": {
+        "host": "localhost",
+        "port": 5432,
+        "user": "postgres",
+        "pass": ""
+    },
+    "fx_exchange": {
+        "base_currency": "EUR",
+        "cache_location": ".cache/",
+        "api_key": ""
+    },
+    "amadeus": {
+        "api_key": "",
+        "api_secret": ""
+    },
+    "world_map": {
+        "airports_file": "data/airports_dataset.csv",
+        "cache_location": ""
+    }
+}

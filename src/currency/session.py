@@ -18,20 +18,36 @@ class ExchangeRatesSession:
 
     BASE_ENDPOINT: const(str) = "https://api.apilayer.com/exchangerates_data/latest"
 
-    MONTHLY_LIMIT: const(str) = "x-ratelimit-limit-month"
-    MONTHLY_REMAINING: const(str) = "x-ratelimit-remaining-month"
-    DAILY_LIMIT: const(str) = "x-ratelimit-limit-day"
-    DAILY_REMAINING: const(str) = "x-ratelimit-remaining-day"
+    _MONTHLY_LIMIT_KEY: const(str) = "X-RateLimit-Limit-Month"
+    _MONTHLY_REMAINING_KEY: const(str) = "X-RateLimit-Remaining-Month"
+    _DAILY_LIMIT_KEY: const(str) = "X-RateLimit-Limit-Day"
+    _DAILY_REMAINING_KEY: const(str) = "X-RateLimit-Remaining-Day"
 
     def __init__(self, api_key: str):
         self._api_key: str = api_key
         self._sess: Session = Session()
         self._rate_limiting: dict[str, int] = {
-            self.MONTHLY_LIMIT: -1,
-            self.MONTHLY_REMAINING: -1,
-            self.DAILY_LIMIT: -1,
-            self.DAILY_REMAINING: -1
+            self._MONTHLY_LIMIT_KEY: -1,
+            self._MONTHLY_REMAINING_KEY: -1,
+            self._DAILY_LIMIT_KEY: -1,
+            self._DAILY_REMAINING_KEY: -1
         }
+
+    @property
+    def monthly_requests_limit(self) -> int:
+        return self._rate_limiting[self._MONTHLY_LIMIT_KEY]
+
+    @property
+    def monthly_requests_remaining(self) -> int:
+        return self._rate_limiting[self._MONTHLY_REMAINING_KEY]
+
+    @property
+    def daily_requests_limit(self) -> int:
+        return self._rate_limiting[self._DAILY_LIMIT_KEY]
+
+    @property
+    def daily_requests_remaining(self) -> int:
+        return self._rate_limiting[self._DAILY_REMAINING_KEY]
 
     def _build_url(self, base: str) -> str:
         return f"{self.BASE_ENDPOINT}?base={base}"
@@ -43,6 +59,8 @@ class ExchangeRatesSession:
         url = self._build_url(base)
         resp = self._perform_request(url)
         if resp.ok:
+            for key in self._rate_limiting.keys():
+                self._rate_limiting[key] = resp.headers.get(key, -1)
             return ExchangeRateResponse(
                 base=base,
                 rates=json.loads(resp.text).get("rates")
