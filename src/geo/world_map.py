@@ -6,6 +6,7 @@ from typing import Iterator
 import pandas as pd
 
 from src.flight_search.airport import Airport
+from util.logging.logger import Logger, get_default_logger
 from util.types import const
 
 
@@ -63,19 +64,30 @@ class Field:
 
 class WorldMap:
 
+    logger: Logger = get_default_logger()
+
     KM_PER_SQUARE: const(float) = 12.5
 
-    def __init__(self, data: pd.DataFrame = None):
-        self._map: list[list[Field]] = []
-        max_lat_i, max_lon_i = self.convert_ll_to_indexes(Bounds.max_lat, Bounds.max_lon)
+    def __init__(self, data: pd.DataFrame = None, logger: Logger = None):
+        if logger:
+            self.logger: Logger = logger
+            self.__class__.logger = logger
+        self._map: list[list[Field]] = self._build_default_map()
+        if data is not None:
+            self.populate(data)
+
+    @classmethod
+    def _build_default_map(cls) -> list[list[Field]]:
+        _map: list[list[Field]] = []
+        max_lat_i, max_lon_i = cls.convert_ll_to_indexes(Bounds.max_lat, Bounds.max_lon)
+        cls.logger.debug(f"Building default map with bounds {max_lat_i=} {max_lon_i=}")
         for lat_i in range(max_lat_i + 1):
             row = []
             for lon_i in range(max_lon_i + 1):
-                lat, lon = self.convert_indexes_to_ll(lat_i, lon_i)
+                lat, lon = cls.convert_indexes_to_ll(lat_i, lon_i)
                 row.append(Field(lat=lat, lon=lon))
-            self._map.append(row)
-        if data is not None:
-            self.populate(data)
+            _map.append(row)
+        return _map
 
     @staticmethod
     def _get_min_lat_bound(lat: int, offset: int) -> int:
@@ -96,6 +108,7 @@ class WorldMap:
     def subgrid(self, min_lat_i: int, min_lon_i: int, offset: int) -> Iterator[Field]:
         lat_i = min_lat_i
         lon_i = min_lon_i
+        self.logger.debug(f"Trying to find subgrid with {min_lat_i=} {min_lon_i=} and {offset=}")
         for _ in range(offset * 2):
             for _ in range(offset * 2):
                 yield self.get_field(lat_i, lon_i)
@@ -119,6 +132,7 @@ class WorldMap:
     def find_nearby(self, ap: Airport, max_radius_km: float = 100.) -> list[tuple[Airport, float]]:
         # TODO: See why some searches work in one direction but not in reverse
         max_jumps = math.ceil(max_radius_km / self.KM_PER_SQUARE)
+        self.logger.info(f"FInding airports within {max_jumps} jumps ({max_radius_km:.2f}km) of {ap.name} {ap.coordinates}")
         rv: list[tuple[Airport, float]] = []
 
         def __insert(ap_: Airport):
@@ -127,15 +141,16 @@ class WorldMap:
                 if dist < stored_dist and (dist <= max_radius_km):
                     rv.insert(idx, (ap_, dist))
                     return
-            if dist <= max_radius_km:
-                rv.append((ap_, dist))
+            rv.append((ap_, dist))
 
         lat_i, lon_i = self.convert_ll_to_indexes(ap.latitude, ap.longitude)
         min_lat_i = self._get_min_lat_bound(lat_i, offset=max_jumps)
         min_lon_i = self._get_min_lon_bound(lon_i, offset=max_jumps)
         for field in self.subgrid(min_lat_i=min_lat_i, min_lon_i=min_lon_i, offset=max_jumps):
             for found_ap in field.airports.values():
-                __insert(found_ap)
+                if (distance := ap.distance_to(found_ap)) < max_radius_km:
+                    self.logger.debug(f"Found nearby ({distance=}) AP {found_ap.name} {found_ap.coordinates} ")
+                    __insert(found_ap)
         return rv
 
     def get_field(self, lat_i: int, lon_i: int) -> Field:

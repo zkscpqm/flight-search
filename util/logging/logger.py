@@ -36,7 +36,21 @@ class Logger:
         self._write(message, LogLevelEnum.ERROR, *args, **kwargs)
 
 
-_DEFAULT_LOGGER: nullable(Logger) = None
+def get_logger(time_fmt: str, date_fmt: str, dt_fmt: str,
+               level: LogLevel = LogLevelEnum.INFO, extra_handlers: list[BaseHandler] = None) -> Logger:
+    extra_handlers = extra_handlers or []
+    for h in extra_handlers:
+        h.set_formats(time_fmt, date_fmt, dt_fmt)
+
+    return Logger(
+        handlers=[StdoutHandler(time_fmt, date_fmt, dt_fmt)] + extra_handlers,
+        min_level=level
+    )
+
+
+_DEFAULT_LOGGER: Logger = get_logger(
+    time_fmt="%H:%M:%S", date_fmt="%d-%m-%Y", dt_fmt="%d-%m-%Y_%H:%M:%S", level=LogLevelEnum.INFO
+)
 
 
 def set_default_logger(logger: Logger):
@@ -44,15 +58,5 @@ def set_default_logger(logger: Logger):
     _DEFAULT_LOGGER = logger
 
 
-def get_logger(time_fmt: str, date_fmt: str, dt_fmt: str,
-               level: LogLevel = None, extra_handlers: list[BaseHandler] = None, set_default: bool = True):
-    extra_handlers = extra_handlers or []
-    for h in extra_handlers:
-        h.set_formats(time_fmt, date_fmt, dt_fmt)
-
-    logger = Logger(
-        handlers=[StdoutHandler(time_fmt, date_fmt, dt_fmt)] + extra_handlers,
-        min_level=level
-    )
-    if set_default:
-        set_default_logger(logger)
+def get_default_logger() -> nullable(Logger):
+    return _DEFAULT_LOGGER

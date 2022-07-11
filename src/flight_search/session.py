@@ -6,29 +6,21 @@ from src.currency.money import Money
 from src.flight_search.airport import Airport
 from src.flight_search.search_query import FlightSearchQuery
 from util.goroutine import Channel
+from util.logging.logger import Logger, get_default_logger
 from util.types import nullable, const
-
-
-class AuthenticationError(Exception):
-    def __init__(self, endpoint: str, auth: str = None):
-        self.endpoint: const(str) = endpoint
-        self.auth: nullable(str) = auth
-
-    def __str__(self) -> str:
-        msg = f"failed to authenticate for {self.endpoint}"
-        if self.auth:
-            msg = f"{msg} with provided auth: `{self.auth}`"
-        return msg
 
 
 class AmadeusSession:
 
+    logger: Logger = get_default_logger()
     BASE_ENDPOINT: const(str) = "https://test.api.amadeus.com/"
 
-    def __init__(self, api_key: str, api_secret: str, lazy_init: bool = False):
+    def __init__(self, api_key: str, api_secret: str, lazy_init: bool = False, logger: Logger = None):
+        if logger:
+            self.logger: Logger = logger
+            self.__class__.logger = logger
         self._api_key: str = api_key
         self._api_secret: str = api_secret
-        self._max_workers: int = 10
         self._sess: Session = Session()
         self._initialized: bool = False
 
@@ -54,8 +46,10 @@ class AmadeusSession:
         return self._sess.request(method=method, url=url, headers=headers, **kwargs)
 
     def _refresh_access_token(self):
+        self.logger.info("Trying to get Amadeus API token...")
         if not self._api_key or not self._api_secret:
-            raise AttributeError("no api key and/or secret set")
+            self.logger.error("Cannot refresh Amadeus Session. No api key and/or secret set")
+            return
         url = self._build_url("v1", "security", "oauth2", "token")
         resp = self._sess.post(
             url,
@@ -67,12 +61,16 @@ class AmadeusSession:
             }
         )
         if not resp.ok:
-            raise AuthenticationError(url, auth=self._api_key)
+            self.logger.error(f"Failed to get Amadeus token from `{url}`:"
+                              f"[{resp.status_code}] {resp.text}")
+            return
         if not (token := resp.json().get("access_token")):
-            raise AttributeError("response does not contain access token!")
+            self.logger.error(f"Response does not contain access token! Resp:\n{resp.text}")
+            return
         self._access_token = token
         self._initialized = True
         self._token_expiry = datetime.now() + timedelta(minutes=30)
+        self.logger.info("Amadeus access token set!")
 
     def find_flights_o2o(self, depart: Airport, arrive: Airport, budget: Money, dates: list[datetime],
                          channel: Channel):

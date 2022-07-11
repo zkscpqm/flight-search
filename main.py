@@ -8,7 +8,8 @@ from src.currency.exchange import ExchangeRateMap
 from src.flight_search.session import AmadeusSession
 from src.flight_search_manager import FlightSearchManager
 from src.geo.world_map import WorldMap
-from util.logging.logger import get_logger
+from util.logging.logger import get_logger, set_default_logger
+from util.logging.log_level import LogLevelEnum
 
 
 def main():
@@ -24,22 +25,26 @@ def main():
         date_fmt=config.logging_date_fmt,
         time_fmt=config.logging_time_fmt,
         dt_fmt=config.logging_dt_fmt,
-        level=config.logging_level,
-        set_default=True
+        level=LogLevelEnum.by_name(config.logging_level),
     )
+    set_default_logger(logger)
 
     mgr = FlightSearchManager(
         world_map=WorldMap(
-            data=pd.read_csv(filepath_or_buffer=Path(config.world_map_airports_file), sep=';', header=0)
+            data=pd.read_csv(filepath_or_buffer=Path(config.world_map_airports_file), sep=';', header=0),
+            logger=logger
         ),
         fx_api=ExchangeRateMap(
             fx_exchange_api_key=secrets.exchangerates_api_key,
-            cache_location=Path(config.fx_exchange_cache_location)
+            cache_location=Path(config.fx_exchange_cache_location),
+            logger=logger
         ),
         flight_search=AmadeusSession(
             api_key=secrets.amadeus_api_key,
             api_secret=secrets.amadeus_api_secret,
-        )
+            logger=logger
+        ),
+        logger=logger
     )
 
     # sess =

@@ -3,6 +3,7 @@ from time import time
 
 import psycopg2
 
+from util.logging.logger import Logger, get_default_logger
 from util.types import nullable, const
 
 
@@ -16,10 +17,15 @@ class DBConnectConfig:
 
 class FlightSearchPostgresDB:
 
+    logger: Logger = get_default_logger()
+
     db_name: const(str) = 'flight-search'
     distances_table: const(str) = 'airport_distance_mapping'
 
-    def __init__(self, config: DBConnectConfig):
+    def __init__(self, config: DBConnectConfig, logger: Logger):
+        if logger:
+            self.logger: Logger = logger
+            self.__class__.logger = logger
         self._conf: DBConnectConfig = config
 
         self._initialized: bool = False
@@ -33,6 +39,7 @@ class FlightSearchPostgresDB:
         self._connect()
 
     def _connect(self):
+        self.logger.info(f"Attempting to connect to DB `{self.db_name}` on {self._conf.db_host}:{self._conf.db_port}")
         c = psycopg2.connect(
             database=self.db_name,
             user=self._conf.db_user,

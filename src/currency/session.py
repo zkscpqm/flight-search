@@ -3,6 +3,7 @@ import json
 
 from requests import Session, Response
 
+from util.logging.logger import Logger, get_default_logger
 from util.types import const
 
 
@@ -16,6 +17,8 @@ class ExchangeRateResponse:
 
 class ExchangeRatesSession:
 
+    logger: Logger = get_default_logger()
+
     BASE_ENDPOINT: const(str) = "https://api.apilayer.com/exchangerates_data/latest"
 
     _MONTHLY_LIMIT_KEY: const(str) = "X-RateLimit-Limit-Month"
@@ -23,7 +26,10 @@ class ExchangeRatesSession:
     _DAILY_LIMIT_KEY: const(str) = "X-RateLimit-Limit-Day"
     _DAILY_REMAINING_KEY: const(str) = "X-RateLimit-Remaining-Day"
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, logger: Logger = None):
+        if logger:
+            self.logger: Logger = logger
+            self.__class__.logger = logger
         self._api_key: str = api_key
         self._sess: Session = Session()
         self._rate_limiting: dict[str, int] = {
@@ -57,14 +63,17 @@ class ExchangeRatesSession:
 
     def get_rates(self, base: str) -> ExchangeRateResponse:
         url = self._build_url(base)
+        self.logger.info(f"Attempting to load FX rates from `{url}`...")
         resp = self._perform_request(url)
         if resp.ok:
+            self.logger.info(f"FX rates fetched successfully! ({resp.status_code})")
             for key in self._rate_limiting.keys():
                 self._rate_limiting[key] = resp.headers.get(key, -1)
             return ExchangeRateResponse(
                 base=base,
                 rates=json.loads(resp.text).get("rates")
             )
+        self.logger.error(f"Could not fetch FX rates!")
         return ExchangeRateResponse(
             base=base,
             error_code=resp.status_code,
