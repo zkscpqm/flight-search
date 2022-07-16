@@ -1,14 +1,14 @@
 import dataclasses
 from collections import namedtuple
 
-from geopy import distance
-
+from util.math import calculate_distance_km
 from util.types import nullable
 
 
 @dataclasses.dataclass
 class Airport:
-    name: str
+    # TODO: Make UID and loader from DB row
+    full_name: str
     country: str
     region: str
     municipality: str
@@ -25,7 +25,7 @@ class Airport:
     @classmethod
     def from_namedtuple(cls, nt: namedtuple) -> 'Airport':
         return Airport(
-            name=nt.name,
+            full_name=nt.name,
             country=nt.iso_country,
             region=nt.iso_region,
             municipality=nt.municipality,
@@ -37,7 +37,7 @@ class Airport:
         )
 
     def distance_to(self, other: 'Airport') -> float:
-        return distance.geodesic(self.coordinates, other.coordinates, ellipsoid='WGS-84').km
+        return calculate_distance_km(self.coordinates, other.coordinates)
 
     def __hash__(self) -> int:
         return hash(self.coordinates)

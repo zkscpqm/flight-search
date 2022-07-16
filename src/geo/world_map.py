@@ -50,7 +50,7 @@ class Field:
         return self.airports.get(name)
 
     def put(self, airport: Airport):
-        self.airports[airport.name] = airport
+        self.airports[airport.full_name] = airport
 
     def __len__(self) -> int:
         return len(self.airports)
@@ -132,7 +132,7 @@ class WorldMap:
     def find_nearby(self, ap: Airport, max_radius_km: float = 100.) -> list[tuple[Airport, float]]:
         # TODO: See why some searches work in one direction but not in reverse
         max_jumps = math.ceil(max_radius_km / self.KM_PER_SQUARE)
-        self.logger.info(f"FInding airports within {max_jumps} jumps ({max_radius_km:.2f}km) of {ap.name} {ap.coordinates}")
+        self.logger.info(f"FInding airports within {max_jumps} jumps ({max_radius_km:.2f}km) of {ap.full_name} {ap.coordinates}")
         rv: list[tuple[Airport, float]] = []
 
         def __insert(ap_: Airport):
@@ -149,7 +149,7 @@ class WorldMap:
         for field in self.subgrid(min_lat_i=min_lat_i, min_lon_i=min_lon_i, offset=max_jumps):
             for found_ap in field.airports.values():
                 if (distance := ap.distance_to(found_ap)) < max_radius_km:
-                    self.logger.debug(f"Found nearby ({distance=}) AP {found_ap.name} {found_ap.coordinates} ")
+                    self.logger.debug(f"Found nearby ({distance=}) AP {found_ap.full_name} {found_ap.coordinates} ")
                     __insert(found_ap)
         return rv
 
