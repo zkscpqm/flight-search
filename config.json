@@ -16,6 +16,9 @@
                 "batch_size": 10000,
                 "skip_small_airports": true
             }
+        },
+        "airports": {
+            "init_script": "src/db/scripts/create_airports_db.sql"
         }
     },
     "fx_exchange": {

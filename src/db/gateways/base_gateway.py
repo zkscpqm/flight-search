@@ -38,11 +38,16 @@ class BaseGateway(abc.ABC, FormattingMixin):
             exit(1)
 
     @classmethod
-    def _build_insert_query(cls, table: str, columns: list[str], values: list[tuple], conflict: str = 'pairid') -> str:
+    def _build_insert_query(cls, table: str, columns: list[str], values: list[tuple],
+                            avoid_conflict: bool = False, conflict: str = None) -> str:
         query = f"INSERT INTO {table} ({', '.join(columns)}) VALUES\n"
         for row in values:
             query += f"({','.join((cls.format_value(x) for x in row))}),\n"
-        return query[:-2] + (';' if not conflict else f'ON CONFLICT ({conflict}) DO NOTHING;')
+        if avoid_conflict:
+            if conflict:
+                return query[:-2] + f' ON CONFLICT ({conflict}) DO NOTHING;'
+            return query[:-2] + f' ON CONFLICT DO NOTHING;'
+        return query[:-2] + ';'
 
     def reconnect(self, new_config: DBConnectConfig = None):
         self.pg.reconnect(new_config=new_config)
@@ -52,7 +57,7 @@ class BaseGateway(abc.ABC, FormattingMixin):
         self._closed = True
 
     def execute(self, query: str, fetch: bool = False,
-                max_attempts: int = 1, sleep_duration_s: float = 1., suppress_query_out: bool = False) -> PgResponse:
+                max_attempts: int = 1, sleep_duration_s: float = 1., suppress_query_out: bool = False, **_) -> PgResponse:
         total_time_ms = 0
         qry_log = f' query:\n{query}' if self._debug_mode and not suppress_query_out else ''
         for attempt_number in range(1, max_attempts + 1):

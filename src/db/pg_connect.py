@@ -35,7 +35,7 @@ class FlightSearchPostgresDB:
 
     logger: Logger = get_default_logger()
 
-    def __init__(self, config: DBConnectConfig, logger: Logger):
+    def __init__(self, config: DBConnectConfig, logger: Logger = None):
         if logger:
             self.logger: Logger = logger
             self.__class__.logger = logger

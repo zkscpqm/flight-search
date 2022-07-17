@@ -1,23 +1,16 @@
-import copy
-import json
-import time
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
-
 from config import Configuration
 from secrets import SecretManager
-from src.currency.exchange import ExchangeRateMap
+from src.db.gateways.airport_gateway import AirportGateway
 from src.db.gateways.distance_pairs_gateway import AirportDistancePairsGateway
 from src.db.pg_connect import FlightSearchPostgresDB, DBConnectConfig
 from src.flight_search.airport import Airport
-from src.flight_search.session import AmadeusSession
-from src.flight_search_manager import FlightSearchManager
-from src.geo.world_map import WorldMap
 from util.logging.logger import get_logger, set_default_logger
 from util.logging.log_level import LogLevelEnum
 from util.logging.logging_handlers import FileHandler
+from util.math import format_timedelta_string
 
 
 def main():
@@ -39,82 +32,55 @@ def main():
         ]
     )
     set_default_logger(logger)
-    gw = AirportDistancePairsGateway(
-        pg=FlightSearchPostgresDB(
-            config=DBConnectConfig(
-                db_pass=secrets.db_password
-            ),
-            logger=logger
-        ),
-        init_script=Path(config.db_distance_pairs_init_script).absolute(),
+    db = FlightSearchPostgresDB(config=DBConnectConfig(db_pass=secrets.db_password), logger=logger)
+
+    ap_gw = AirportGateway(
+        pg=db,
+        init_script=Path(config.db_airports_init_script).absolute(),
         debug_mode=bool(config.debug_mode),
         logger=logger
     )
 
-    airports_dataset = pd.read_csv(filepath_or_buffer=Path(config.world_map_airports_file), sep=';', header=0)
-    logger.debug(f"Original dataset length: {len(airports_dataset)}")
-    airports_dataset = airports_dataset[airports_dataset['iata_code'].notna() | airports_dataset['iata_code']]
-    logger.debug(f"Post-drop airports dataset length: {len(airports_dataset)}")
+    dist_gw = AirportDistancePairsGateway(
+        pg=db,
+        init_script=Path(config.db_distance_pairs_init_script).absolute(),
+        debug_mode=bool(config.debug_mode),
+        logger=logger
+    )
+    airports = []
+
+    with open(Path(config.world_map_airports_file)) as airports_file:
+        next(airports_file)  # Skip header
+        for airport_row in airports_file:
+            airport_details = airport_row[:-1].split(";")
+            ap = Airport(
+                full_name=airport_details[0],
+                iso_country=airport_details[1],
+                iso_region=airport_details[2],
+                municipality=airport_details[3],
+                latitude=float(airport_details[4]),
+                longitude=float(airport_details[5]),
+                size=airport_details[6],
+                iata_code=airport_details[7],
+                local_code=(airport_details[8] if len(airport_details) == 9 else '')
+            )
+
+            if ap.iata_code not in {None, ''}:
+                airports.append(ap)
 
     start = datetime.now()
-    # gw.pair_exists("JOE", "UTK")
 
-    # distance_import_dataset = [(series.iata_code, series.latitude, series.longitude)
-    #                            for _, series in airports_dataset.iterrows() if series.iata_code not in {'0', 0}]
-    distance_import_dataset = []
-    seen = set()
-    for _, series in airports_dataset.iterrows():
-        if series.iata_code in {'0', 0}:
-            continue
-        if config.db_distance_pairs_import_skip_small_airports and series.type == 'small_airport':
-            continue
-        if series.iata_code in seen:
-            print(f"SEEN! {series.iata_code}")  # TODO: Implement uid field to work around duplicate IATA Codes
-            continue
-        distance_import_dataset.append((series.iata_code, series.latitude, series.longitude))
-        seen.add(series.iata_code)
+    added_airports = ap_gw.import_data(airports)
+    ap_import_finished = datetime.now()
+    logger.info(f"Populating Airports table took {format_timedelta_string(ap_import_finished - start)}")
+    n = dist_gw.import_data(
+        airports=airports,
+        batch_size=config.db_distance_pairs_import_batch_size,
+        validate=True
+    )
 
-    print(len(seen))
-    print(len(distance_import_dataset))
-    time.sleep(10)
-    gw.import_data(dataset=distance_import_dataset, batch_size=config.db_distance_pairs_import_batch_size, validate=True)
-
-    logger.info(f"populating took {(datetime.now() - start).seconds} seconds")
-    # k1_, k2_ = _sort_keys("SOF", "BOJ")
-    # logger.info(f"Sofia -> Burgas: {distance_map[k1_][k2_]}")
-    # all_iatas = airports_dataset['iata_code'].tolist()
-    # fst = True
-    # for ap_tup in airports_dataset.itertuples(index=None):
-    #     ap = Airport.from_namedtuple(ap_tup)
-    #     res = db.get_pairs_by_ap(ap.iata_code)
-    #
-    #     if fst:
-    #         logger.debug(str(type(res)))
-    #         logger.debug(str(type(res[0])))
-    #         fst = False
-    #
-    #     try:
-    #         logger.debug(str(len(res)))
-    #     except:
-    #         logger.error('nope')
-    #     exit(1)
-    #     all_pairs_for_ap = [row[0] for row in res]
-    #     set_pairs_for_ap = set(all_pairs_for_ap)
-    #     if (la := len(all_pairs_for_ap)) != (ls := len(set_pairs_for_ap)):
-    #         logger.warning(f"Inconsistent pair lengths for {ap.iata_code}: {la=} {ls=}")
-    #
-    #     if ls != len(all_iatas):
-    #         logger.warning(f"Expected {len(all_iatas)} pairs for {ap.iata_code}, found only {ls}")
-    #         all_iatas_cp = set(copy.deepcopy(all_iatas))
-    #         for found_iata in set_pairs_for_ap:
-    #             if found_iata in all_iatas_cp:
-    #                 all_iatas_cp.remove(found_iata)
-    #             else:
-    #                 logger.debug(f"failed to find {found_iata}")
-    #         logger.debug(f"Missing {len(all_iatas_cp)}:\n{all_iatas_cp}")
-    #
-    #
-
+    logger.info(f"Calculating and populating {n} distances took {format_timedelta_string(datetime.now() - ap_import_finished)}")
+    logger.info(f"Total time taken: {format_timedelta_string(datetime.now() - start)}")
 
     # mgr = FlightSearchManager(
     #     world_map=WorldMap(
@@ -133,19 +99,6 @@ def main():
     #     ),
     #     logger=logger
     # )
-
-    # sess =
-    # data = pd.read_csv(filepath_or_buffer=Path("data/airports_dataset.csv"), sep=';', header=0)
-    #
-    # map_ = Map(data)
-    # ap = map_.lookup('Sofia Airport')
-    # bs = map_.lookup('Burgas Airport')
-    # # print(ap.distance_to(bs))
-    # if ap:
-    #     nearby = map_.find_nearby(ap, max_radius_km=400)
-    #     if len(nearby) > 0:
-    #         print(f"[{ap.name}] nearby ({len(nearby)}): {', '.join((f'{ap_.name} ({dist})' for ap_, dist in nearby))}")
-
 
 if __name__ == "__main__":
     main()

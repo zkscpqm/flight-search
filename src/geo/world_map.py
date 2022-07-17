@@ -188,5 +188,5 @@ class WorldMap:
             filter_.add('medium_airport')
         for ap in data.itertuples(index=False):
             airport = Airport.from_namedtuple(ap)
-            if airport.ap_type not in filter_:
+            if airport.size not in filter_:
                 self.insert(airport)
