@@ -77,7 +77,5 @@ class Airport:
     @property
     def uid(self) -> nullable(str):
         if not self.iata_code:
-            return None
-        if not self.local_code:
-            return self.iata_code
-        return f"{self.iata_code}_{self.local_code}"
+            return str(hash(self))
+        return f"{self.iata_code}_{abs(hash(self))}"

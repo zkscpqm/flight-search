@@ -13,13 +13,13 @@
         "distance_pairs": {
             "init_script": "src/db/scripts/create_ap_distance_pairs_db.sql",
             "import": {
-                "batch_size": 10000,
-                "skip_small_airports": true
+                "batch_size": 10000
             }
         },
         "airports": {
             "init_script": "src/db/scripts/create_airports_db.sql"
-        }
+        },
+        "skip_small_airports": true
     },
     "fx_exchange": {
         "base_currency": "EUR",

@@ -1,6 +1,6 @@
 create table if not exists airports
 (
-    uid          varchar(20)
+    uid          varchar(30)
                  constraint airports_pk
                  primary key,
 

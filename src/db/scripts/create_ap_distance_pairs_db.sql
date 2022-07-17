@@ -1,10 +1,10 @@
 create table if not exists airport_distance_mapping
 (
-    pair_id     varchar(40)
+    pair_id     varchar(60)
                 constraint airport_distance_mapping_pk
                 primary key,
-    ap1         varchar(20)      not null,
-    ap2         varchar(20)      not null,
+    ap1         varchar(30)      not null,
+    ap2         varchar(30)      not null,
     distance_km double precision not null
 );
 

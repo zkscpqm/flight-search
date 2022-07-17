@@ -48,31 +48,35 @@ def main():
         logger=logger
     )
     airports = []
-
+    seen_uids = set()
     with open(Path(config.world_map_airports_file)) as airports_file:
         next(airports_file)  # Skip header
         for airport_row in airports_file:
             airport_details = airport_row[:-1].split(";")
-            ap = Airport(
-                full_name=airport_details[0],
-                iso_country=airport_details[1],
-                iso_region=airport_details[2],
-                municipality=airport_details[3],
-                latitude=float(airport_details[4]),
-                longitude=float(airport_details[5]),
-                size=airport_details[6],
-                iata_code=airport_details[7],
-                local_code=(airport_details[8] if len(airport_details) == 9 else '')
-            )
+            if airport_details[0] not in {0, '0'}:
+                ap = Airport(
+                    full_name=airport_details[0],
+                    iso_country=airport_details[1],
+                    iso_region=airport_details[2],
+                    municipality=airport_details[3],
+                    latitude=float(airport_details[4]),
+                    longitude=float(airport_details[5]),
+                    size=airport_details[6],
+                    iata_code=airport_details[7],
+                    local_code=(airport_details[8] if len(airport_details) == 9 else '')
+                )
 
-            if ap.iata_code not in {None, ''}:
+            if ap.iata_code not in {None, ''}\
+                    and not (config.db_skip_small_airports and ap.size == 'small_airport')\
+                    and ap.uid not in seen_uids:
                 airports.append(ap)
+                seen_uids.add(ap.uid)
 
     start = datetime.now()
 
     added_airports = ap_gw.import_data(airports)
     ap_import_finished = datetime.now()
-    logger.info(f"Populating Airports table took {format_timedelta_string(ap_import_finished - start)}")
+    logger.info(f"Populating Airports table with {added_airports} entries took {format_timedelta_string(ap_import_finished - start)}")
     n = dist_gw.import_data(
         airports=airports,
         batch_size=config.db_distance_pairs_import_batch_size,
